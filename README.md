@@ -103,3 +103,6 @@ TCP flood， TCP SYN flood，UDP flood 混合
 ##  ntp.c
 基于NTP反射的DDoS攻击，通过发送大量伪造的NTP请求数据包来耗尽目标系统的资源
 NTP（Network Time Protocol）服务器是一种用于同步计算机系统时间的服务器。它使用 NTP 协议，通过网络将时间信息传递给客户端，使客户端的系统时间与服务器的时间保持一致。
+
+##  kaitenstd.c
+实现了一个IRC（Internet Relay Chat）机器人，能够执行多种DDoS攻击（如STD攻击和未知攻击），将感染的设备变成攻击者控制的肉鸡，并利用其资源执行远程命令和发动网络攻击。并通过IRC命令控制这些攻击。
