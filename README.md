@@ -93,3 +93,6 @@ DNS扫描和放大攻击：扫描指定IP范围内的DNS服务器，并发送伪
 
 ##  essyn.c
 TCP SYN flood 类似dominate
+
+##  god-flood.py 
+UDP flood
