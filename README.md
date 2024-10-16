@@ -96,3 +96,6 @@ TCP SYN flood 类似dominate
 
 ##  god-flood.py 
 UDP flood
+
+##  god-flood.py
+TCP flood， TCP SYN flood，UDP flood 混合 
