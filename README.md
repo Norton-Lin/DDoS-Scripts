@@ -99,3 +99,7 @@ UDP flood
 
 ##  god-flood.py
 TCP flood， TCP SYN flood，UDP flood 混合 
+
+##  ntp.c
+基于NTP反射的DDoS攻击，通过发送大量伪造的NTP请求数据包来耗尽目标系统的资源
+NTP（Network Time Protocol）服务器是一种用于同步计算机系统时间的服务器。它使用 NTP 协议，通过网络将时间信息传递给客户端，使客户端的系统时间与服务器的时间保持一致。
