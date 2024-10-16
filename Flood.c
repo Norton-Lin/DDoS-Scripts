@@ -299,6 +299,7 @@ int main(int argc, char *argv[])
     exit(0);
 }
 
+//解析主机名并获取IP地址
 u_long lookup(const char *host)
 {
     struct hostent *hp;
@@ -314,6 +315,7 @@ u_long lookup(const char *host)
 
 #define RANDOM() (int)random() % 255 + 1
 
+//构造ip地址
 char *class2ip(const char *class)
 {
     static char ip[16];
@@ -343,6 +345,7 @@ char *class2ip(const char *class)
     return ip;
 }
 
+//计算校验和
 unsigned short in_cksum(unsigned short *addr, int len)
 {
     int nleft = len;
@@ -402,6 +405,7 @@ static void inject_iphdr(struct ip *ip, u_char p, u_char len)
     target.sin_addr.s_addr = ip->ip_dst.s_addr; // 更新目标地址
 }
 
+//发送TCP数据包
 static void send_tcp(u_char th_flags)
 {
     struct cksum cksum;
@@ -438,6 +442,7 @@ static void send_tcp(u_char th_flags)
     SEND_PACKET(); // 发送数据包
 }
 
+//发送UDP数据包
 static void send_udp(u_char garbage) /* No use for garbage here, just to remain */
 {                        /* coherent with a_list[]                  */
     struct packet
@@ -459,6 +464,7 @@ static void send_udp(u_char garbage) /* No use for garbage here, just to remain 
     SEND_PACKET(); // 发送数据包
 }
 
+//发送ICMP数据包
 static void send_icmp(u_char gargabe) /* Garbage discarded again.. */
 {
     struct packet
