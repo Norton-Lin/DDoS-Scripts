@@ -83,4 +83,7 @@ Security	Basic 2016 |           OVH,NFO, & CloudFlare	80	LAYER 4 -VIP
 TCP DDoS攻击，模拟多个客户端发送大量TCP数据包
 
 ##  dns_scanner.c
-扫描特定范围内的IP地址，发送DNS请求，并监听返回的响应
+扫描特定范围内的IP地址，发送DNS请求，并监听返回的响应,向dns服务器发送大量请求形成DDoS,反射放大型DDoS
+
+##  dns.c
+直接向Dns服务器发起dns请求形成DDoS
