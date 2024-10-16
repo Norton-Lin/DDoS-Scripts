@@ -82,4 +82,5 @@ Security	Basic 2016 |           OVH,NFO, & CloudFlare	80	LAYER 4 -VIP
 ##  ack.c
 TCP DDoS攻击，模拟多个客户端发送大量TCP数据包
 
-##  
+##  dns_scanner.c
+扫描特定范围内的IP地址，发送DNS请求，并监听返回的响应
