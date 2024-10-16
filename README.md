@@ -80,10 +80,13 @@ Security	Basic 2016 |           OVH,NFO, & CloudFlare	80	LAYER 4 -VIP
 用于模拟TCP、UDP和ICMP数据包发送的程序，它可以通过不同的参数配置来模拟网络攻击
 
 ##  ack.c
-TCP DDoS攻击，模拟多个客户端发送大量TCP数据包
+TCP DDoS攻击，模拟多个客户端发送大量TCP数据包，TCP ACK Flood。主要通过发送大量伪造的TCP ACK数据包来耗尽目标系统的资源
 
 ##  dns_scanner.c
-扫描特定范围内的IP地址，发送DNS请求，并监听返回的响应,向dns服务器发送大量请求形成DDoS,反射放大型DDoS
+DNS扫描和放大攻击：扫描指定IP范围内的DNS服务器，并发送伪造的DNS查询请求，利用这些服务器进行放大攻击。
 
 ##  dns.c
-直接向Dns服务器发起dns请求形成DDoS
+通过发送大量伪造的DNS查询请求，利用开放的DNS服务器将小请求放大为大响应，从而放大攻击流量
+
+##  dominate.c
+构造并发送TCP数据包来模拟DoS攻击， 感觉跟ack.c机制一样，但通过SYN Flood
