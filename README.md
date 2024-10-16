@@ -89,4 +89,7 @@ DNS扫描和放大攻击：扫描指定IP范围内的DNS服务器，并发送伪
 通过发送大量伪造的DNS查询请求，利用开放的DNS服务器将小请求放大为大响应，从而放大攻击流量
 
 ##  dominate.c
-构造并发送TCP数据包来模拟DoS攻击， 感觉跟ack.c机制一样，但通过SYN Flood
+构造并发送TCP数据包来模拟DoS攻击， 通过SYN Flood
+
+##  essyn.c
+TCP SYN flood 类似dominate
