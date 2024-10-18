@@ -20,7 +20,7 @@
  
 #define MAX_PACKET_SIZE 65534
 #define PHI 0x9e3779b9
- 
+ // 这个攻击方式和rssyn.c几乎一样，除了是重点是TCP中的ack类型包
 static unsigned long int Q[4096], c = 362436;
 volatile int limiter;
 volatile unsigned int pps;
